@@ -128,6 +128,8 @@ cursor is valid only for the same `selection_key` and filters. Other cursors ret
 
 Each list item has a preview of the first text member: at most 100 characters, with `...`
 and `preview_truncated` when it is shortened. Media members show only the file name.
+HTTP(S) media URLs are recognized regardless of scheme case or leading whitespace;
+their authority, query, and fragment are excluded from the preview.
 Standalone absolute paths and URLs stored as text show `[Text reference]` rather than
 paths or credentials; detail retains the full stored value. Other types show a type label.
 The browser does not render templates or run

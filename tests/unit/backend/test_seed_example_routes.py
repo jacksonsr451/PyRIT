@@ -15,7 +15,15 @@ from pyrit.backend.services.dataset_service import get_dataset_service
 from pyrit.common.utils import to_sha256
 from pyrit.memory import MemoryInterface
 from pyrit.memory.memory_models import SeedEntry
-from pyrit.models import AnswerMatches, MatchesObjective, Seed, SeedObjective, SeedPrompt, SeedSimulatedConversation
+from pyrit.models import (
+    AnswerMatches,
+    MatchesObjective,
+    PromptDataType,
+    Seed,
+    SeedObjective,
+    SeedPrompt,
+    SeedSimulatedConversation,
+)
 
 URL = "/api/datasets/seeds"
 DATASET = "browse"
@@ -106,6 +114,33 @@ async def test_list_seed_examples_builds_safe_previews(client: AsyncClient, sqli
     assert items[str(image.id)]["preview"] == "[Image: cat.png]"
     assert items[str(url.id)]["preview"] == "[url]"
     assert items[str(configuration.id)]["preview"] == "[Simulated conversation configuration]"
+
+
+@pytest.mark.parametrize(
+    ("data_type", "label"),
+    [("image_path", "Image"), ("audio_path", "Audio"), ("video_path", "Video"), ("binary_path", "File")],
+)
+@pytest.mark.parametrize("prefix", ["HTTPS://", "hTtP://", " \thttps://"])
+async def test_seed_example_media_preview_normalizes_url_prefix_async(
+    *,
+    client: AsyncClient,
+    sqlite_instance: MemoryInterface,
+    data_type: PromptDataType,
+    label: str,
+    prefix: str,
+) -> None:
+    url = f"{prefix}reader:password@example.test/private/file.png?sig=secret#token=secret"
+    seed = _prompt(url, data_type=data_type)
+    await _store(sqlite_instance, seed)
+
+    listed = await client.get(URL, params={"selection_key": NAMED})
+    detail = await client.get(f"{URL}/{seed.id}", params={"selection_key": NAMED})
+
+    assert listed.status_code == detail.status_code == 200
+    assert listed.json()["items"][0]["preview"] == f"[{label}: file.png]"
+    assert listed.json()["items"][0]["preview_truncated"] is False
+    assert detail.json()["preview"] == f"[{label}: file.png]"
+    assert detail.json()["members"][0]["value"] == url
 
 
 @pytest.mark.parametrize(
